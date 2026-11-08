@@ -1,4 +1,4 @@
-import { Analytics } from "@vercel/analytics/react"
+import { Analytics } from "@vercel/analytics/react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Provider } from "./store";
 import Layout from "./Layout";
@@ -21,7 +21,7 @@ export default function App() {
           />
           <Route path="payments" element={<Payments title="Payments" />} />
           <Route path="customers" element={<Customers />} />
-          <Analytics/>
+          <Analytics />
           <Route path="products" element={<Products />} />
           <Route path="balances" element={<Balances />} />
           <Route path="reports" element={<Reports />} />
