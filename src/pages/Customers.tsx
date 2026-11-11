@@ -1,17 +1,245 @@
-import {useState} from 'react';import {Plus} from 'lucide-react';import {fmt,dt,Customer} from '../data';import {useStore} from '../store';import {Badge,Drawer,Modal,Field,Empty,Pager} from '../ui';
-const PER=10;
-export default function Customers(){
- const {customers,setCustomers,payments,toast}=useStore();const [q,setQ]=useState('');const [flt,setFlt]=useState('');const [page,setPage]=useState(1);const [open,setOpen]=useState<string|null>(null);const [ed,setEd]=useState<Partial<Customer>|null>(null);
- const stats=(id:string)=>{const p=payments.filter(x=>x.customerId===id&&x.status==='succeeded');return{spent:p.reduce((a,x)=>a+x.amount,0),n:p.length}};
- const rows=customers.filter(c=>(c.name+c.email+c.id).toLowerCase().includes(q.toLowerCase())&&(!flt||(flt==='top'?stats(c.id).spent>50000:stats(c.id).n===0)));const pages=Math.max(1,Math.ceil(rows.length/PER));const view=rows.slice((page-1)*PER,page*PER);
- const cur=customers.find(c=>c.id===open);
- const save=()=>{if(!ed?.name||!/\S+@\S+/.test(ed.email||''))return toast('Name and valid email required');if(ed.id)setCustomers(cs=>cs.map(c=>c.id===ed.id?{...c,...ed} as Customer:c));else setCustomers(cs=>[{id:'cus_'+Math.random().toString(36).slice(2,10).toUpperCase(),phone:'',created:new Date().toISOString(),...ed} as Customer,...cs]);setEd(null);toast('Customer saved')};
- return <div className="page"><div className="ph"><h1>Customers</h1><button className="btn primary" onClick={()=>setEd({name:'',email:'',phone:''})}><Plus size={14}/>Add customer</button></div>
- <div className="filters"><input className="in" placeholder="Search customers" value={q} onChange={e=>{setQ(e.target.value);setPage(1)}}/><select className="in" value={flt} onChange={e=>{setFlt(e.target.value);setPage(1)}}><option value="">All customers</option><option value="top">Top spenders</option><option value="none">No payments</option></select></div>
- {rows.length===0?<Empty text="No customers found"/>:<><div className="tbl-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Customer ID</th><th className="r">Total spent</th><th className="r">Payments</th><th>Created</th></tr></thead><tbody>{view.map(c=>{const s=stats(c.id);return <tr key={c.id} className="cl" onClick={()=>setOpen(c.id)}><td><b>{c.name}</b></td><td>{c.email}</td><td className="muted">{c.id}</td><td className="r">{fmt(s.spent)}</td><td className="r">{s.n}</td><td className="muted">{dt(c.created)}</td></tr>})}</tbody></table></div><Pager page={page} pages={pages} total={rows.length} per={PER} set={setPage}/></>}
- <Drawer open={!!cur} onClose={()=>setOpen(null)} title={cur?.name||''}>{cur&&(()=>{const s=stats(cur.id);return <><div className="row mb"><button className="btn" onClick={()=>setEd(cur)}>Edit</button><button className="btn danger" onClick={()=>{setCustomers(cs=>cs.filter(c=>c.id!==cur.id));setOpen(null);toast('Customer deleted')}}>Delete</button></div>
- <div className="grid g2e mb"><div className="card metric"><div className="l">Lifetime value</div><div className="v">{fmt(s.spent)}</div></div><div className="card metric"><div className="l">Payments</div><div className="v">{s.n}</div></div></div>
- <dl className="kv"><dt>Email</dt><dd>{cur.email}</dd><dt>Phone</dt><dd>{cur.phone||'—'}</dd><dt>ID</dt><dd>{cur.id}</dd><dt>Created</dt><dd>{dt(cur.created)}</dd></dl>
- <h2 style={{marginTop:20}}>Payment methods</h2><div className="card">Visa •••• 4242 <span className="muted">· exp 08/28 (mock)</span></div>
- <h2 style={{marginTop:20}}>Payment history</h2>{payments.filter(p=>p.customerId===cur.id).slice(0,8).map(p=><div key={p.id} className="row" style={{justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--b)'}}><span>{fmt(p.amount)} <Badge s={p.status}/></span><span className="muted">{dt(p.created)}</span></div>)}</>})()}</Drawer>
- <Modal open={!!ed} onClose={()=>setEd(null)} title={ed?.id?'Edit customer':'Add customer'} footer={<><button className="btn" onClick={()=>setEd(null)}>Cancel</button><button className="btn primary" onClick={save}>Save</button></>}>{ed&&<><Field label="Name"><input className="in" value={ed.name||''} onChange={e=>setEd({...ed,name:e.target.value})}/></Field><Field label="Email"><input className="in" value={ed.email||''} onChange={e=>setEd({...ed,email:e.target.value})}/></Field><Field label="Phone"><input className="in" value={ed.phone||''} onChange={e=>setEd({...ed,phone:e.target.value})}/></Field></>}</Modal></div>}
+import { useState } from "react";
+import { Plus } from "lucide-react";
+import { fmt, dt, Customer } from "../data";
+import { useStore } from "../store";
+import { Badge, Drawer, Modal, Field, Empty, Pager } from "../ui";
+const PER = 10;
+export default function Customers() {
+  const { customers, setCustomers, payments, toast } = useStore();
+  const [q, setQ] = useState("");
+  const [flt, setFlt] = useState("");
+  const [page, setPage] = useState(1);
+  const [open, setOpen] = useState<string | null>(null);
+  const [ed, setEd] = useState<Partial<Customer> | null>(null);
+  const stats = (id: string) => {
+    const p = payments.filter(
+      (x) => x.customerId === id && x.status === "succeeded",
+    );
+    return { spent: p.reduce((a, x) => a + x.amount, 0), n: p.length };
+  };
+  const rows = customers.filter(
+    (c) =>
+      (c.name + c.email + c.id).toLowerCase().includes(q.toLowerCase()) &&
+      (!flt ||
+        (flt === "top" ? stats(c.id).spent > 50000 : stats(c.id).n === 0)),
+  );
+  const pages = Math.max(1, Math.ceil(rows.length / PER));
+  const view = rows.slice((page - 1) * PER, page * PER);
+  const cur = customers.find((c) => c.id === open);
+  const save = () => {
+    if (!ed?.name || !/\S+@\S+/.test(ed.email || ""))
+      return toast("Name and valid email required");
+    if (ed.id)
+      setCustomers((cs) =>
+        cs.map((c) => (c.id === ed.id ? ({ ...c, ...ed } as Customer) : c)),
+      );
+    else
+      setCustomers((cs) => [
+        {
+          id: "cus_" + Math.random().toString(36).slice(2, 10).toUpperCase(),
+          phone: "",
+          created: new Date().toISOString(),
+          ...ed,
+        } as Customer,
+        ...cs,
+      ]);
+    setEd(null);
+    toast("Customer saved");
+  };
+  return (
+    <div className="page">
+      <div className="ph">
+        <h1>Customers</h1>
+        <button
+          className="btn primary"
+          onClick={() => setEd({ name: "", email: "", phone: "" })}
+        >
+          <Plus size={14} />
+          Add customer
+        </button>
+      </div>
+      <div className="filters">
+        <input
+          className="in"
+          placeholder="Search customers"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1);
+          }}
+        />
+        <select
+          className="in"
+          value={flt}
+          onChange={(e) => {
+            setFlt(e.target.value);
+            setPage(1);
+          }}
+        >
+          <option value="">All customers</option>
+          <option value="top">Top spenders</option>
+          <option value="none">No payments</option>
+        </select>
+      </div>
+      {rows.length === 0 ? (
+        <Empty text="No customers found" />
+      ) : (
+        <>
+          <div className="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Customer ID</th>
+                  <th className="r">Total spent</th>
+                  <th className="r">Payments</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {view.map((c) => {
+                  const s = stats(c.id);
+                  return (
+                    <tr key={c.id} className="cl" onClick={() => setOpen(c.id)}>
+                      <td>
+                        <b>{c.name}</b>
+                      </td>
+                      <td>{c.email}</td>
+                      <td className="muted">{c.id}</td>
+                      <td className="r">{fmt(s.spent)}</td>
+                      <td className="r">{s.n}</td>
+                      <td className="muted">{dt(c.created)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <Pager
+            page={page}
+            pages={pages}
+            total={rows.length}
+            per={PER}
+            set={setPage}
+          />
+        </>
+      )}
+      <Drawer
+        open={!!cur}
+        onClose={() => setOpen(null)}
+        title={cur?.name || ""}
+      >
+        {cur &&
+          (() => {
+            const s = stats(cur.id);
+            return (
+              <>
+                <div className="row mb">
+                  <button className="btn" onClick={() => setEd(cur)}>
+                    Edit
+                  </button>
+                  <button
+                    className="btn danger"
+                    onClick={() => {
+                      setCustomers((cs) => cs.filter((c) => c.id !== cur.id));
+                      setOpen(null);
+                      toast("Customer deleted");
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+                <div className="grid g2e mb">
+                  <div className="card metric">
+                    <div className="l">Lifetime value</div>
+                    <div className="v">{fmt(s.spent)}</div>
+                  </div>
+                  <div className="card metric">
+                    <div className="l">Payments</div>
+                    <div className="v">{s.n}</div>
+                  </div>
+                </div>
+                <dl className="kv">
+                  <dt>Email</dt>
+                  <dd>{cur.email}</dd>
+                  <dt>Phone</dt>
+                  <dd>{cur.phone || "—"}</dd>
+                  <dt>ID</dt>
+                  <dd>{cur.id}</dd>
+                  <dt>Created</dt>
+                  <dd>{dt(cur.created)}</dd>
+                </dl>
+                <h2 style={{ marginTop: 20 }}>Payment methods</h2>
+                <div className="card">
+                  Visa •••• 4242{" "}
+                  <span className="muted">· exp 08/28 (mock)</span>
+                </div>
+                <h2 style={{ marginTop: 20 }}>Payment history</h2>
+                {payments
+                  .filter((p) => p.customerId === cur.id)
+                  .slice(0, 8)
+                  .map((p) => (
+                    <div
+                      key={p.id}
+                      className="row"
+                      style={{
+                        justifyContent: "space-between",
+                        padding: "6px 0",
+                        borderBottom: "1px solid var(--b)",
+                      }}
+                    >
+                      <span>
+                        {fmt(p.amount)} <Badge s={p.status} />
+                      </span>
+                      <span className="muted">{dt(p.created)}</span>
+                    </div>
+                  ))}
+              </>
+            );
+          })()}
+      </Drawer>
+      <Modal
+        open={!!ed}
+        onClose={() => setEd(null)}
+        title={ed?.id ? "Edit customer" : "Add customer"}
+        footer={
+          <>
+            <button className="btn" onClick={() => setEd(null)}>
+              Cancel
+            </button>
+            <button className="btn primary" onClick={save}>
+              Save
+            </button>
+          </>
+        }
+      >
+        {ed && (
+          <>
+            <Field label="Name">
+              <input
+                className="in"
+                value={ed.name || ""}
+                onChange={(e) => setEd({ ...ed, name: e.target.value })}
+              />
+            </Field>
+            <Field label="Email">
+              <input
+                className="in"
+                value={ed.email || ""}
+                onChange={(e) => setEd({ ...ed, email: e.target.value })}
+              />
+            </Field>
+            <Field label="Phone">
+              <input
+                className="in"
+                value={ed.phone || ""}
+                onChange={(e) => setEd({ ...ed, phone: e.target.value })}
+              />
+            </Field>
+          </>
+        )}
+      </Modal>
+    </div>
+  );
+}
