@@ -1,24 +1,278 @@
-import {useMemo,useState} from 'react';import {Link,useNavigate} from 'react-router-dom';import {AreaChart,Area,XAxis,YAxis,Tooltip,ResponsiveContainer,CartesianGrid,PieChart,Pie,Cell} from 'recharts';import {Download,Plus,ArrowUpRight,ArrowDownRight} from 'lucide-react';
-import {daily,fmt,dt,Status} from '../data';import {useStore} from '../store';import {Badge,Menu,download} from '../ui';
-const COL=['#635bff','#00d4ff','#80e9ff','#a259ff','#c4c8ff','#7a73ff'];
-export default function Overview(){
- const {payments,customers,toast}=useStore();const nv=useNavigate();const [range,setRange]=useState(30);const [gran,setGran]=useState<'Daily'|'Weekly'|'Monthly'>('Daily');
- const data=useMemo(()=>{const d=daily.slice(-range);const n=gran==='Daily'?1:gran==='Weekly'?7:30;const out=[];for(let i=0;i<d.length;i+=n){const g=d.slice(i,i+n);out.push({label:g[0].label,volume:g.reduce((a,x)=>a+x.volume,0),prev:g.reduce((a,x)=>a+x.prev,0)})}return out},[range,gran]);
- const tot=data.reduce((a,x)=>a+x.volume,0)*100,prev=data.reduce((a,x)=>a+x.prev,0)*100;
- const ok=payments.filter(p=>p.status==='succeeded');const rate=(ok.length/payments.length*100);
- const metrics=[['Gross volume',fmt(tot),(tot/prev-1)*100],['Net volume',fmt(tot*.964),(tot/prev-1)*100-.4],['Successful payments',String(ok.length),6.2],['New customers',String(customers.length),12.5],['Average order value',fmt(ok.reduce((a,p)=>a+p.amount,0)/Math.max(ok.length,1)),-1.8],['Payment success rate',rate.toFixed(1)+'%',0.9]] as const;
- const meth=Object.entries(payments.reduce((a:any,p)=>{const k=p.method.split(' ')[0];a[k]=(a[k]||0)+1;return a},{})).map(([name,value])=>({name,value:value as number}));
- const cn=(id:string)=>customers.find(c=>c.id===id)?.name||id;
- return <div className="page"><div className="ph"><h1>Overview</h1><div className="row">
-  <select className="in" value={range} onChange={e=>setRange(+e.target.value)}><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option></select>
-  <span className="muted">vs previous period</span>
-  <button className="btn" onClick={()=>{download('overview.csv',[['Date','Volume','Previous'],...data.map(d=>[d.label,d.volume,d.prev])]);toast('Export downloaded')}}><Download size={14}/>Export</button>
-  <button className="btn primary" onClick={()=>nv('/payments?new=1')}><Plus size={14}/>Create payment</button></div></div>
- <div className="grid g3 mb">{metrics.map(([l,v,d])=><div className="card metric" key={l}><div className="l">{l}</div><div className="v">{v}</div><span className={'delta '+(d>=0?'up':'dn')}>{d>=0?<ArrowUpRight size={12}/>:<ArrowDownRight size={12}/>}{Math.abs(d).toFixed(1)}%</span> <span className="muted" style={{fontSize:12}}>vs previous period</span></div>)}</div>
- <div className="card mb"><div className="ph" style={{marginBottom:8}}><h2 style={{margin:0}}>Payments volume</h2><div className="tabs" style={{margin:0,border:0}}>{(['Daily','Weekly','Monthly'] as const).map(g=><button key={g} className={gran===g?'on':''} onClick={()=>setGran(g)}>{g}</button>)}</div></div>
-  <div style={{height:260}}><ResponsiveContainer><AreaChart data={data} margin={{left:0,right:8}}><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#635bff" stopOpacity={.2}/><stop offset="100%" stopColor="#635bff" stopOpacity={0}/></linearGradient></defs><CartesianGrid vertical={false} stroke="#e3e8ee"/><XAxis dataKey="label" tick={{fontSize:11,fill:'#697386'}} tickLine={false} axisLine={false} minTickGap={24}/><YAxis tick={{fontSize:11,fill:'#697386'}} tickLine={false} axisLine={false} tickFormatter={v=>'$'+(v/1000).toFixed(0)+'k'} width={44}/>
-  <Tooltip formatter={(v:number)=>'$'+v.toLocaleString()}/><Area dataKey="prev" name="Previous period" stroke="#a3acb9" strokeDasharray="4 3" fill="none" strokeWidth={1.5}/><Area dataKey="volume" name="Volume" stroke="#635bff" fill="url(#g)" strokeWidth={2}/></AreaChart></ResponsiveContainer></div></div>
- <div className="grid g2 mb"><div><h2>Recent payments</h2><div className="tbl-wrap"><table><thead><tr><th>Customer</th><th>Amount</th><th>Status</th><th>Method</th><th>Date</th><th>ID</th></tr></thead><tbody>{payments.slice(0,8).map(p=><tr key={p.id} className="cl" onClick={()=>nv('/transactions?q='+p.id)}><td>{cn(p.customerId)}</td><td>{fmt(p.amount)}</td><td><Badge s={p.status as Status}/></td><td>{p.method}</td><td className="muted">{dt(p.created)}</td><td className="muted">{p.id}</td></tr>)}</tbody></table></div></div>
- <div><h2>Payment methods</h2><div className="card" style={{height:240}}><ResponsiveContainer><PieChart><Pie data={meth} dataKey="value" innerRadius={50} outerRadius={80} paddingAngle={2}>{meth.map((_,i)=><Cell key={i} fill={COL[i%COL.length]}/>)}</Pie><Tooltip/></PieChart></ResponsiveContainer></div></div></div>
- <div className="grid g2e"><div><h2>Recent customers</h2><div className="card">{customers.slice(0,5).map(c=><div key={c.id} className="row" style={{justifyContent:'space-between',padding:'6px 0'}}><span>{c.name}</span><span className="muted">{c.email}</span></div>)}<Link to="/customers" style={{color:'var(--p)',textDecoration:'none'}}>View all customers →</Link></div></div>
- <div><h2>Quick actions</h2><div className="card" style={{display:'flex',flexDirection:'column',gap:8}}><button className="btn" onClick={()=>nv('/payments?new=1')}>Create a payment</button><button className="btn" onClick={()=>nv('/customers')}>Add a customer</button><button className="btn" onClick={()=>nv('/products')}>Create a product</button><button className="btn" onClick={()=>nv('/reports')}>View reports</button></div></div></div></div>}
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+import { Download, Plus, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { daily, fmt, dt, Status } from "../data";
+import { useStore } from "../store";
+import { Badge, Menu, download } from "../ui";
+const COL = ["#635bff", "#00d4ff", "#80e9ff", "#a259ff", "#c4c8ff", "#7a73ff"];
+export default function Overview() {
+  const { payments, customers, toast } = useStore();
+  const nv = useNavigate();
+  const [range, setRange] = useState(30);
+  const [gran, setGran] = useState<"Daily" | "Weekly" | "Monthly">("Daily");
+  const data = useMemo(() => {
+    const d = daily.slice(-range);
+    const n = gran === "Daily" ? 1 : gran === "Weekly" ? 7 : 30;
+    const out = [];
+    for (let i = 0; i < d.length; i += n) {
+      const g = d.slice(i, i + n);
+      out.push({
+        label: g[0].label,
+        volume: g.reduce((a, x) => a + x.volume, 0),
+        prev: g.reduce((a, x) => a + x.prev, 0),
+      });
+    }
+    return out;
+  }, [range, gran]);
+  const tot = data.reduce((a, x) => a + x.volume, 0) * 100,
+    prev = data.reduce((a, x) => a + x.prev, 0) * 100;
+  const ok = payments.filter((p) => p.status === "succeeded");
+  const rate = (ok.length / payments.length) * 100;
+  const metrics = [
+    ["Gross volume", fmt(tot), (tot / prev - 1) * 100],
+    ["Net volume", fmt(tot * 0.964), (tot / prev - 1) * 100 - 0.4],
+    ["Successful payments", String(ok.length), 6.2],
+    ["New customers", String(customers.length), 12.5],
+    [
+      "Average order value",
+      fmt(ok.reduce((a, p) => a + p.amount, 0) / Math.max(ok.length, 1)),
+      -1.8,
+    ],
+    ["Payment success rate", rate.toFixed(1) + "%", 0.9],
+  ] as const;
+  const meth = Object.entries(
+    payments.reduce((a: any, p) => {
+      const k = p.method.split(" ")[0];
+      a[k] = (a[k] || 0) + 1;
+      return a;
+    }, {}),
+  ).map(([name, value]) => ({ name, value: value as number }));
+  const cn = (id: string) => customers.find((c) => c.id === id)?.name || id;
+  return (
+    <div className="page">
+      <div className="ph">
+        <h1>Overview</h1>
+        <div className="row">
+          <select
+            className="in"
+            value={range}
+            onChange={(e) => setRange(+e.target.value)}
+          >
+            <option value={7}>Last 7 days</option>
+            <option value={30}>Last 30 days</option>
+            <option value={90}>Last 90 days</option>
+          </select>
+          <span className="muted">vs previous period</span>
+          <button
+            className="btn"
+            onClick={() => {
+              download("overview.csv", [
+                ["Date", "Volume", "Previous"],
+                ...data.map((d) => [d.label, d.volume, d.prev]),
+              ]);
+              toast("Export downloaded");
+            }}
+          >
+            <Download size={14} />
+            Export
+          </button>
+          <button className="btn primary" onClick={() => nv("/payments?new=1")}>
+            <Plus size={14} />
+            Create payment
+          </button>
+        </div>
+      </div>
+      <div className="grid g3 mb">
+        {metrics.map(([l, v, d]) => (
+          <div className="card metric" key={l}>
+            <div className="l">{l}</div>
+            <div className="v">{v}</div>
+            <span className={"delta " + (d >= 0 ? "up" : "dn")}>
+              {d >= 0 ? (
+                <ArrowUpRight size={12} />
+              ) : (
+                <ArrowDownRight size={12} />
+              )}
+              {Math.abs(d).toFixed(1)}%
+            </span>{" "}
+            <span className="muted" style={{ fontSize: 12 }}>
+              vs previous period
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="card mb">
+        <div className="ph" style={{ marginBottom: 8 }}>
+          <h2 style={{ margin: 0 }}>Payments volume</h2>
+          <div className="tabs" style={{ margin: 0, border: 0 }}>
+            {(["Daily", "Weekly", "Monthly"] as const).map((g) => (
+              <button
+                key={g}
+                className={gran === g ? "on" : ""}
+                onClick={() => setGran(g)}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ height: 260 }}>
+          <ResponsiveContainer>
+            <AreaChart data={data} margin={{ left: 0, right: 8 }}>
+              <defs>
+                <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#635bff" stopOpacity={0.2} />
+                  <stop offset="100%" stopColor="#635bff" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} stroke="#e3e8ee" />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 11, fill: "#697386" }}
+                tickLine={false}
+                axisLine={false}
+                minTickGap={24}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: "#697386" }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v) => "$" + (v / 1000).toFixed(0) + "k"}
+                width={44}
+              />
+              <Tooltip formatter={(v: number) => "$" + v.toLocaleString()} />
+              <Area
+                dataKey="prev"
+                name="Previous period"
+                stroke="#a3acb9"
+                strokeDasharray="4 3"
+                fill="none"
+                strokeWidth={1.5}
+              />
+              <Area
+                dataKey="volume"
+                name="Volume"
+                stroke="#635bff"
+                fill="url(#g)"
+                strokeWidth={2}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <div className="grid g2 mb">
+        <div>
+          <h2>Recent payments</h2>
+          <div className="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Method</th>
+                  <th>Date</th>
+                  <th>ID</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.slice(0, 8).map((p) => (
+                  <tr
+                    key={p.id}
+                    className="cl"
+                    onClick={() => nv("/transactions?q=" + p.id)}
+                  >
+                    <td>{cn(p.customerId)}</td>
+                    <td>{fmt(p.amount)}</td>
+                    <td>
+                      <Badge s={p.status as Status} />
+                    </td>
+                    <td>{p.method}</td>
+                    <td className="muted">{dt(p.created)}</td>
+                    <td className="muted">{p.id}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h2>Payment methods</h2>
+          <div className="card" style={{ height: 240 }}>
+            <ResponsiveContainer>
+              <PieChart>
+                <Pie
+                  data={meth}
+                  dataKey="value"
+                  innerRadius={50}
+                  outerRadius={80}
+                  paddingAngle={2}
+                >
+                  {meth.map((_, i) => (
+                    <Cell key={i} fill={COL[i % COL.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+      <div className="grid g2e">
+        <div>
+          <h2>Recent customers</h2>
+          <div className="card">
+            {customers.slice(0, 5).map((c) => (
+              <div
+                key={c.id}
+                className="row"
+                style={{ justifyContent: "space-between", padding: "6px 0" }}
+              >
+                <span>{c.name}</span>
+                <span className="muted">{c.email}</span>
+              </div>
+            ))}
+            <Link
+              to="/customers"
+              style={{ color: "var(--p)", textDecoration: "none" }}
+            >
+              View all customers →
+            </Link>
+          </div>
+        </div>
+        <div>
+          <h2>Quick actions</h2>
+          <div
+            className="card"
+            style={{ display: "flex", flexDirection: "column", gap: 8 }}
+          >
+            <button className="btn" onClick={() => nv("/payments?new=1")}>
+              Create a payment
+            </button>
+            <button className="btn" onClick={() => nv("/customers")}>
+              Add a customer
+            </button>
+            <button className="btn" onClick={() => nv("/products")}>
+              Create a product
+            </button>
+            <button className="btn" onClick={() => nv("/reports")}>
+              View reports
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
